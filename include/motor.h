@@ -63,7 +63,7 @@ public:
     stepper.run();
   }
 
-  void moveTo(int64_t pos) {
+  void moveTo(int32_t pos) {
     stepper.moveTo(pos);
   }
 
@@ -101,6 +101,11 @@ public:
   AccelStepper& getStepper() {
     return stepper;
   }
+
+  int32_t Motor::getPosition() {
+    return stepper.currentPosition();
+  }
+
 
 private:
   int driverCurrentClamp() {
