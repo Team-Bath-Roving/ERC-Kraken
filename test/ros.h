@@ -1,14 +1,7 @@
-#include <micro_ros_platformio.h>
-#include <rcl/rcl.h>
-#include <rclc/rclc.h>
-#include <rclc/executor.h>
+#pragma once
 
-#include "kraken_pinout.h"
-#include "configuration.h"
 #include "motors.h"
-
-
-bool homing_complete = false;
+#include "configuration.h"
 
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
@@ -80,6 +73,8 @@ void homing_service_callback(const void* req, void* res) {
   response->message.data = strdup("Homing complete.");
 }
 
+
+
 void enable_motors_service_callback(const void* req, void* res) {
   auto* request = (const std_srvs__srv__SetBool_Request*)req;
   bool enable = request->data;
@@ -93,115 +88,4 @@ void enable_motors_service_callback(const void* req, void* res) {
   auto* response = (std_srvs__srv__SetBool_Response*)res;
   response->success = true;
   response->message.data = strdup(enable ? "Motors enabled" : "Motors disabled");
-}
-
-
-// ================ Homing Function =================
-void perform_homing() {
-  for (Motor& joint : joints){
-    joint.home();
-  } 
-  drill1.home();
-  drill2.home();
-  homing_complete = true;
-
-  homing_done_msg.data = true;
-  rcl_publish(&homing_done_pub, &homing_done_msg, NULL);
-}
-
-/* ----------------------------- Emergency Stop ----------------------------- */
-
-bool estop_active = false;
-
-void check_estop() {
-  static bool last_state = false;
-  bool current_state = digitalRead(ESTOP_PIN) == LOW; // Active-low
-
-  if (current_state && !last_state) {
-    estop_active = true;
-    for (Motor& joint : joints) joint.disable();
-    drill1.disable(); drill2.disable();
-  }
-
-  last_state = current_state;
-}
-
-
-// ==================== Setup =====================
-void setup() {
-  Serial.begin(115200);
-  delay(2000);
-
-  for (Motor& joint : joints) joint.begin();
-  drill1.begin();
-  drill2.begin();
-
-  // ==== micro-ROS Setup ====
-  // set_microros_transports();
-  set_microros_serial_transports(Serial);
-
-  allocator = rcl_get_default_allocator();
-  rclc_support_init(&support, 0, NULL, &allocator);
-  rclc_node_init_default(&node, "motor_node", "", &support);
-
-  // ==== Publisher ====
-  rclc_publisher_init_default(
-    &homing_done_pub,
-    &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-    "homing_done"
-  );
-
-  // ==== Subscriber ====
-  rclc_subscription_init_default(
-    &motor_command_sub,
-    &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray),
-    "joint_positions"
-  );
-
-  // ==== Homing Service ====
-  rclc_service_init_default(
-    &homing_service,
-    &node,
-    ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, Trigger),
-    "home_all"
-  );
-
-  // ==== Executor ====
-  rclc_executor_init(&executor, &support.context, 3, &allocator);
-
-  rclc_executor_add_subscription(
-    &executor, &motor_command_sub, &motor_command_msg,
-    &motor_command_callback, ON_NEW_DATA
-  );
-
-  rclc_executor_add_service(
-    &executor, &homing_service, &homing_req, &homing_res,
-    homing_service_callback
-  );
-}
-
-// ==================== Main Loop =====================
-void loop() {
-  
-  rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
-
-  check_estop();
-
-  // stop motors if estop engaged
-  if (estop_active){
-    for (Motor& joint : joints) {
-      joint.stop();
-    }
-    drill1.stop();
-    drill2.stop();
-  }
-
-  // 
-  for (Motor& joint : joints) {
-      joint.run();
-  }
-  drill1.run();
-  drill2.run();
 }

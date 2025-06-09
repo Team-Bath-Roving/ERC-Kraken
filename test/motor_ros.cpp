@@ -1,4 +1,4 @@
-#include "motor_control.h"
+#include "motor_ros.h"
 #include <rclc/executor.h>
 #include <rclc/rclc.h>
 #include <rcl/error_handling.h>
@@ -29,4 +29,29 @@ void setup_motor_subscriber(rcl_node_t* node, rclc_executor_t* executor) {
   }
 
   rclc_executor_add_subscription(executor, &motor_sub, &motor_cmd_msg, &motor_command_callback, ON_NEW_DATA);
+}
+
+// ================ Homing Service Callback =================
+void homing_service_callback(const void* req, void* res) {
+  perform_homing();
+  auto* response = (std_srvs__srv__Trigger_Response*)res;
+  response->success = true;
+  response->message.data = strdup("Homing complete.");
+}
+
+
+
+void enable_motors_service_callback(const void* req, void* res) {
+  auto* request = (const std_srvs__srv__SetBool_Request*)req;
+  bool enable = request->data;
+
+  for (Motor& joint : joints) {
+    enable ? joint.enable() : joint.disable();
+  }
+  enable ? drill1.enable() : drill1.disable();
+  enable ? drill2.enable() : drill2.disable();
+
+  auto* response = (std_srvs__srv__SetBool_Response*)res;
+  response->success = true;
+  response->message.data = strdup(enable ? "Motors enabled" : "Motors disabled");
 }
