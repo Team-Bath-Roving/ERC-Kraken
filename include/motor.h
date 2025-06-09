@@ -2,6 +2,7 @@
 #include <AccelStepper.h>
 #include <TMCStepper.h>
 #include "kraken_pinout.h"
+#include "configuration.h"
 
 class Motor {
 private:
