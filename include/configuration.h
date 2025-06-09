@@ -5,7 +5,7 @@
 
 #define ESTOP_PIN PC_2 // FWS Filament Sensor Port
 
-// the following are in steps/s
+// the following are in steps
 #define DEFAULT_ACCEL 1000
 #define DEFAULT_SPEED 500
 
@@ -31,7 +31,7 @@
 #define D1_CURR 800
 #define D2_CURR 800
 
-// Steps per revolution (of the axis, default 200 with no gearing)
+// Steps per unit (of the axis, default 200 with no gearing)
 #define J1_STEPS 200
 #define J2_STEPS 200
 #define J3_STEPS 200
@@ -83,4 +83,10 @@
 #define D1_HSPEED 1
 #define D2_HSPEED 1
 
-// 
+// Home Position (units)
+#define J1_HPOS 0
+#define J2_HPOS 0
+#define J3_HPOS 0
+#define J4_HPOS 0
+#define J5_HPOS 0
+#define J6_HPOS 0

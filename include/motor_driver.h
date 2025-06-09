@@ -13,19 +13,20 @@ private:
   uint8_t endstop_pin;
   int steps_per_unit;
   int homing_dir;
-  int homing_speed;
+  float homing_speed;
   int sgt;
   int acceleration=DEFAULT_ACCEL;
   int speed=DEFAULT_SPEED;
   uint16_t microsteps;
   bool sg_homing;
   bool homed = false;
+  float home_position;
 
 public:
   Motor(uint8_t step_pin, uint8_t dir_pin, uint8_t cs_pin, uint8_t en_pin, uint microsteps,
         uint8_t endstop_pin, float RSense, int current_mA, int steps_per_unit,
         bool sg_homing, int sgt,
-        int homing_dir, int homing_speed, bool invert_dir)
+        int homing_dir, float homing_speed, float home_position, bool invert_dir)
     : stepper(AccelStepper::DRIVER, step_pin, dir_pin),
       driver(cs_pin, RSense,TMC_SPI_MOSI,TMC_SPI_MISO,TMC_SPI_SCK,-1),
       cs_pin(cs_pin),
@@ -36,6 +37,7 @@ public:
       steps_per_unit(steps_per_unit),
       sgt(sgt),
       sg_homing(sg_homing),
+      home_position(home_position),
       microsteps(microsteps)
   {
     stepper.setPinsInverted(invert_dir, false, false);
@@ -81,7 +83,7 @@ public:
   }
 
   void moveTo(float pos) {
-    stepper.moveTo((long)(pos*steps_per_unit));
+    stepper.moveTo(unitsToSteps(pos));
   }
 
   bool isRunning() {
@@ -89,37 +91,47 @@ public:
   }
 
   void setCurrentPosition(float pos) {
-    stepper.setCurrentPosition((long)(pos*steps_per_unit));
+    stepper.setCurrentPosition(unitsToSteps(pos));
   }
 
   float currentPosition() {
-    return (float)stepper.currentPosition()/steps_per_unit;
+    return stepsToUnits(stepper.currentPosition());
   }
 
   bool isHomed() const {
     return homed;
   }
 
-  void home() {
-    stepper.setMaxSpeed(homing_speed);
+  bool home() {
 
-    while (digitalRead(endstop_pin) == HIGH) {
-      stepper.moveTo(stepper.currentPosition() + homing_dir * homing_speed);
+    stepper.setMaxSpeed(unitsToSteps(homing_speed));
+
+    // Move away from switch if already pressed
+    while (digitalRead(endstop_pin) == LOW) {
+      stepper.moveTo(stepper.currentPosition() - homing_dir * unitsToSteps(homing_speed));
       stepper.run();
     }
 
-    stepper.setCurrentPosition(0);
-    stepper.moveTo(-homing_dir * 100);
-    while (stepper.distanceToGo() != 0) stepper.run();
-
+    
+    // Move toward endstop until hit
+    while (digitalRead(endstop_pin) == HIGH) {
+      stepper.moveTo(stepper.currentPosition() + homing_dir * unitsToSteps(homing_speed));
+      stepper.run();
+    }
     homed = true;
-  }
 
-  AccelStepper& getStepper() {
-    return stepper;
+    stepper.setCurrentPosition(unitsToSteps(home_position));
+
   }
 
 private:
+  long unitsToSteps(float units) {
+    return (long)(units * steps_per_unit);
+  }
+  float stepsToUnits(long steps) {
+    return (float)steps/steps_per_unit;
+  }
+
   int driverCurrentClamp() {
     return constrain(driver.rms_current(), 200, 2000);
   }
