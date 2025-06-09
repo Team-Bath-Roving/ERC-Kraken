@@ -1,7 +1,7 @@
 #pragma once
 
 #include <std_msgs/msg/int32_multi_array.h>
-#include "Motor.h"
+#include "motor.h"
 #include "configuration.h"
 
 #include <rcl/rcl.h>

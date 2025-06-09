@@ -102,7 +102,7 @@ public:
     return stepper;
   }
 
-  int32_t Motor::getPosition() {
+  int32_t getPosition() {
     return stepper.currentPosition();
   }
 

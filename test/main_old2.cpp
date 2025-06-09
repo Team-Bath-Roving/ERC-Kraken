@@ -1,9 +1,9 @@
-#include <micro_ros_platformio.h>
+#include <micro_ros_arduino.h>
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
 
-#include "motor.h"
+#include "Motor.h"
 #include "kraken_pinout.h"
 #include "configuration.h"
 #include "motor_control.h"
@@ -77,9 +77,7 @@ void setup() {
   drill2.begin();
 
   // ==== micro-ROS Setup ====
-  // set_microros_transports();
-  set_microros_serial_transports(Serial);
-
+  set_microros_transports();
   allocator = rcl_get_default_allocator();
   rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "motor_node", "", &support);
