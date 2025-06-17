@@ -29,13 +29,6 @@ The Kraken is a powerful 3D printer control board which has 4x 8A stepper driver
 This library is used to communicate with the rest of the system:
 [https://github.com/micro-ROS/micro\_ros\_platformio](https://github.com/micro-ROS/micro_ros_platformio)
 
-### File Structure
-
-* `motor.h`, `motor_control.h`: Encapsulate stepper motor behavior and control logic.
-* `kraken_pinout.h`: Defines pin assignments for Kraken board.
-* `configuration.h`: Optional global parameters (e.g., timing, step resolution).
-* `main.cpp`: ROS 2 integration, homing logic, and execution loop.
-
 ---
 
 ## Setup
@@ -65,92 +58,43 @@ Install the PlatformIO extension for VSCode.
 
 ## ROS 2 Interfaces
 
-### Topics
+### Subscribed Topics
 
-#### `joint_positions` (Subscription)
-
-* **Type:** `std_msgs/msg/Int32MultiArray`
-* **Description:** Target positions (in steps) for the 6 joints.
-* **Expected Length:** 6-element array.
-
-#### `homing_done` (Publisher)
-
-* **Type:** `std_msgs/msg/Bool`
-* **Description:** Publishes `true` once all joints and drills are homed.
-
-#### `estop` (Subscription)
-
-* **Type:** `std_msgs/msg/Bool`
-* **Description:** Emergency stop override. If `true`, all motors are disabled.
-
----
-
-### Services
-
-#### `home_all`
-
-* **Type:** `std_srvs/srv/Trigger`
-* **Description:** Initiates the homing sequence for all joints and drills in a configurable order with optional home offsets.
-
-#### `set_motors_enabled`
-
-* **Type:** `std_srvs/srv/SetBool`
-* **Description:** Enables or disables all motors via a service call.
-
-  * `true`: Enable all motors.
-  * `false`: Disable all motors.
-
-#### `manual_home_wrist`
-
-* **Type:** `std_srvs/srv/Trigger`
-* **Description:** Temporarily disables the wrist motors to allow manual positioning. After a delay or signal, it resets their current position to zero.
-
----
-
-## Example ROS 2 Commands
-
-### Home the Arm
-
-```bash
-ros2 service call /home_all std_srvs/srv/Trigger
-```
-
-### Send Position Commands
-
+#### `joint_positions` (`std_msgs/msg/Int32MultiArray`)
+Target positions (in steps) for the 6 joints.
 ```bash
 ros2 topic pub /joint_positions std_msgs/msg/Int32MultiArray "{data: [1000, 2000, 1500, 1000, 500, 0]}"
 ```
-
-### Subscribe to Homing Status
-
-```bash
-ros2 topic echo /homing_done
-```
-
-### Enable Motors
-
-```bash
-ros2 service call /set_motors_enabled std_srvs/srv/SetBool "{data: true}"
-```
-
-### Disable Motors
-
-```bash
-ros2 service call /set_motors_enabled std_srvs/srv/SetBool "{data: false}"
-```
-
-### Manual Home the Wrist
-
-```bash
-ros2 service call /manual_home_wrist std_srvs/srv/Trigger
-```
-
-### Trigger Emergency Stop from ROS
-
+#### `estop` (`std_msgs/msg/Bool`)
+Emergency stop override. If `true`, the arm will stop moving as fast as possible and hold position
 ```bash
 ros2 topic pub /estop std_msgs/msg/Bool "{data: true}"
 ```
 
+### Published Topics
+
+#### `homing_done` (`std_msgs/msg/Bool`)
+Publishes `true` once all joints and drills are homed.
+```bash
+ros2 topic echo /homing_done
+```
+### Services
+
+#### `home_all` (`std_srvs/srv/Trigger`)
+Initiates the homing sequence for all joints and drills in a configurable order with optional home offsets.
+```bash
+ros2 service call /home_all std_srvs/srv/Trigger
+```
+#### `set_motors_enabled` (`std_srvs/srv/SetBool`)
+Enables or disables all motors via a service call.
+```bash
+ros2 service call /set_motors_enabled std_srvs/srv/SetBool "{data: true}"
+```
+#### `manual_home_wrist` (`std_srvs/srv/Trigger`)
+Temporarily disables the wrist motors to allow manual positioning. After 10s it assumes they are homed and re-enables
+```bash
+ros2 service call /manual_home_wrist std_srvs/srv/Trigger
+```
 ---
 
 ## Notes
