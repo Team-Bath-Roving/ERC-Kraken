@@ -1,7 +1,17 @@
 #pragma once
 #include "kraken_pinout.h"
 
+
 #define NUM_JOINTS 6
+
+const char * joint_names[NUM_JOINTS] = {
+  "shoulder_pan_joint", "shoulder_lift_joint",
+  "elbow_joint", "wrist_1_joint",
+  "wrist_2_joint", "wrist_3_joint"
+};
+
+
+
 
 #define ESTOP_PIN PC_2 // FWS Filament Sensor Port
 
@@ -32,14 +42,14 @@
 #define D2_CURR 800
 
 // Steps per unit (of the axis, default 200 with no gearing)
-#define J1_STEPS 200
-#define J2_STEPS 200
-#define J3_STEPS 200
-#define J4_STEPS 200
-#define J5_STEPS 200
-#define J6_STEPS 200
-#define D1_STEPS 800
-#define D2_STEPS 800
+#define J1_STEPS 200 // Direct drive
+#define J2_STEPS 200 * 20/1 // Cycloidal drive
+#define J3_STEPS 200 * 20/1 // Cycloidal drive
+#define J4_STEPS 200 // Direct drive
+#define J5_STEPS 200 * 24/12 // Semi differential pulleys
+#define J6_STEPS 200 * 24/12 // Semi differential pulleys
+#define D1_STEPS 200
+#define D2_STEPS 200
 
 /* --------------------------------- HOMING --------------------------------- */
 

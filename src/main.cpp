@@ -9,25 +9,36 @@
 #include "motors.h"
 
 #include <std_msgs/msg/bool.h>
-#include <std_msgs/msg/int32_multi_array.h>
+#include <std_msgs/msg/float32_multi_array.h>
 #include <std_srvs/srv/trigger.h>
 #include <std_srvs/srv/set_bool.h>
+#include <sensor_msgs/msg/joint_state.h>
+#include <trajectory_msgs/msg/joint_trajectory.h>
 
-// ===================== ROS 2 Core =====================
+/* ------------------------------- ROS objects ------------------------------ */
+
 rclc_support_t support;
 rcl_allocator_t allocator;
 rcl_node_t node;
 rclc_executor_t executor;
 
-// ===================== Messages & Services =====================
+
+/* ------------------------------- ROS Topics ------------------------------- */
+
 rcl_publisher_t homing_done_pub;
 std_msgs__msg__Bool homing_done_msg;
 
+rcl_publisher_t joint_state_pub;
+sensor_msgs__msg__JointState joint_state_msg;
+
 rcl_subscription_t motor_command_sub;
-std_msgs__msg__Int32MultiArray motor_command_msg;
+std_msgs__msg__Float32MultiArray motor_command_msg;
 
 rcl_subscription_t estop_sub;
 std_msgs__msg__Bool estop_msg;
+
+rcl_subscription_t trajectory_sub;
+trajectory_msgs__msg__JointTrajectory trajectory_msg;
 
 rcl_service_t homing_service;
 std_srvs__srv__Trigger_Request homing_req;
@@ -41,13 +52,29 @@ rcl_service_t manual_home_service;
 std_srvs__srv__Trigger_Request manual_home_req;
 std_srvs__srv__Trigger_Response manual_home_res;
 
-// ===================== Flags =====================
+
+/* -------------------------------- Variables ------------------------------- */
+
 bool homing_complete = false;
 bool estop_active = false;
+double joint_positions[NUM_JOINTS];
 
-// ===================== Callbacks =====================
+
+/* ---------------------------- Helper functions ---------------------------- */
+
+int get_joint_index_by_name(const char* name) {
+    for (int i = 0; i < NUM_JOINTS; ++i) {
+        if (strcmp(joint_names[i], name) == 0) {
+            return i;
+        }
+    }
+    return -1; // Not found
+}
+
+/* -------------------------------- Callbacks ------------------------------- */
+
 void motor_command_callback(const void* msgin) {
-  const std_msgs__msg__Int32MultiArray* msg = (const std_msgs__msg__Int32MultiArray*)msgin;
+  const std_msgs__msg__Float32MultiArray* msg = (const std_msgs__msg__Float32MultiArray*)msgin;
   if (estop_active) return;
 
   for (size_t i = 0; i < NUM_JOINTS; i++) {
@@ -101,7 +128,25 @@ void manual_home_service_callback(const void* req, void* res) {
   response->message.data = strdup("Wrist manually homed.");
 }
 
-// ===================== Homing Function =====================
+void trajectory_callback(const void* msgin) {
+  const trajectory_msgs__msg__JointTrajectory* msg = (const trajectory_msgs__msg__JointTrajectory*)msgin;
+
+  if (msg->points.size == 0) return;
+
+  const auto* point = &msg->points.data[0];
+  for (size_t i = 0; i < msg->joint_names.size && i < NUM_JOINTS; ++i) {
+    const char* joint_name = msg->joint_names.data[i].data;
+
+    // Map joint_name to index if needed
+    uint joint_idx = get_joint_index_by_name(joint_name);
+
+    double rad = point->positions.data[i];
+    joints[joint_idx].moveTo(degrees(rad));
+  }
+}
+
+/* --------------------------------- Homing --------------------------------- */
+
 void perform_homing() {
   // Don't home the last joint?
   for (int i=0; i<5; i++) {
@@ -116,7 +161,8 @@ void perform_homing() {
   rcl_publish(&homing_done_pub, &homing_done_msg, NULL);
 }
 
-// ===================== Physical E-stop =====================
+/* ---------------------------------- Estop --------------------------------- */
+
 void check_estop_pin() {
   static bool last_state = false;
   bool current_state = digitalRead(ESTOP_PIN) == LOW; // Active-low
@@ -131,92 +177,85 @@ void check_estop_pin() {
   last_state = current_state;
 }
 
-// ===================== Setup =====================
+/* ---------------------------------- Setup --------------------------------- */
+
 void setup() {
+
+
+  // Serial startup
   Serial.begin(115200);
+  set_microros_serial_transports(Serial);
   delay(2000);
 
+  // Start motors
   for (Motor& joint : joints) joint.begin();
   drill1.begin();
   drill2.begin();
 
-  set_microros_serial_transports(Serial);
-
+  // Create the node
   allocator = rcl_get_default_allocator();
   rclc_support_init(&support, 0, NULL, &allocator);
   rclc_node_init_default(&node, "motor_node", "", &support);
 
-  rclc_publisher_init_default(
-    &homing_done_pub,
-    &node,
+  /* ----------------------------- Register Topics ---------------------------- */
+  // Publishers
+  rclc_publisher_init_default(&joint_state_pub,&node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(sensor_msgs, msg, JointState),
+    "joint_states");
+    
+  rclc_publisher_init_default(&homing_done_pub,&node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-    "homing_done"
-  );
+    "homing_done");
 
-  rclc_subscription_init_default(
-    &motor_command_sub,
-    &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32MultiArray),
-    "joint_positions"
-  );
-
-  rclc_subscription_init_default(
-    &estop_sub,
-    &node,
+  // Subscriptions
+  rclc_subscription_init_default(&motor_command_sub,&node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
+    "joint_positions");
+    
+  rclc_subscription_init_default(&estop_sub,&node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
-    "estop"
-  );
+    "estop");
 
-  rclc_service_init_default(
-    &homing_service,
-    &node,
+  rclc_subscription_init_default(&trajectory_sub,&node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(trajectory_msgs, msg, JointTrajectory),
+    "arm_controller/joint_trajectory");
+
+  // Services
+  rclc_service_init_default(&homing_service,&node,
     ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, Trigger),
-    "home_all"
-  );
-
-  rclc_service_init_default(
-    &enable_motors_service,
-    &node,
+    "home_all");
+    
+  rclc_service_init_default(&enable_motors_service,&node,
     ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, SetBool),
-    "set_motors_enabled"
-  );
-
-  rclc_service_init_default(
-    &manual_home_service,
-    &node,
+    "set_motors_enabled");
+    
+  rclc_service_init_default(&manual_home_service,&node,
     ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, Trigger),
-    "manual_home_wrist"
-  );
+    "manual_home_wrist");
+
+  
+  /* --------------------------- Register Callbacks --------------------------- */
 
   rclc_executor_init(&executor, &support.context, 5, &allocator);
 
-  rclc_executor_add_subscription(
-    &executor, &motor_command_sub, &motor_command_msg,
-    &motor_command_callback, ON_NEW_DATA
-  );
+  rclc_executor_add_subscription(&executor, &motor_command_sub, &motor_command_msg,
+    &motor_command_callback, ON_NEW_DATA);
 
-  rclc_executor_add_subscription(
-    &executor, &estop_sub, &estop_msg,
-    &estop_callback, ON_NEW_DATA
-  );
+  rclc_executor_add_subscription(&executor, &estop_sub, &estop_msg,
+    &estop_callback, ON_NEW_DATA);
 
-  rclc_executor_add_service(
-    &executor, &homing_service, &homing_req, &homing_res,
-    homing_service_callback
-  );
+  rclc_executor_add_service(&executor, &homing_service, &homing_req, &homing_res,
+    homing_service_callback);
 
-  rclc_executor_add_service(
-    &executor, &enable_motors_service, &enable_motors_req, &enable_motors_res,
-    enable_motors_service_callback
-  );
+  rclc_executor_add_service(&executor, &enable_motors_service, &enable_motors_req, &enable_motors_res,
+    enable_motors_service_callback);
 
-  rclc_executor_add_service(
-    &executor, &manual_home_service, &manual_home_req, &manual_home_res,
-    manual_home_service_callback
-  );
+  rclc_executor_add_service(&executor, &manual_home_service, &manual_home_req, &manual_home_res,
+    manual_home_service_callback);
 }
 
-// ===================== Loop =====================
+/* ---------------------------------- Loop ---------------------------------- */
+
 void loop() {
   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10));
 
@@ -225,4 +264,16 @@ void loop() {
   for (Motor& joint : joints) joint.run();
   drill1.run();
   drill2.run();
+
+  joint_state_msg.header.stamp = /* get current time */;
+  joint_state_msg.name.size = NUM_JOINTS;
+  joint_state_msg.position.size = NUM_JOINTS;
+  joint_state_msg.name.data = joint_names;    // `const char* joint_names[NUM_JOINTS] = {"joint1", ...};`
+  joint_state_msg.position.data = joint_positions;  // double joint_positions[NUM_JOINTS];
+
+  for (size_t i = 0; i < NUM_JOINTS; ++i) {
+    joint_positions[i] = radians(joints[i].currentPosition()); // Must be in radians
+  }
+  rcl_publish(&joint_state_pub, &joint_state_msg, NULL);
+
 }
