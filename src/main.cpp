@@ -14,6 +14,8 @@
 #include <std_srvs/srv/set_bool.h>
 #include <sensor_msgs/msg/joint_state.h>
 #include <trajectory_msgs/msg/joint_trajectory.h>
+#include <rmw_microros/rmw_microros.h>
+#include <rosidl_runtime_c/string_functions.h>
 
 /* ------------------------------- ROS objects ------------------------------ */
 
@@ -58,6 +60,7 @@ std_srvs__srv__Trigger_Response manual_home_res;
 bool homing_complete = false;
 bool estop_active = false;
 double joint_positions[NUM_JOINTS];
+rosidl_runtime_c__String joint_name_strings[NUM_JOINTS];
 
 
 /* ---------------------------- Helper functions ---------------------------- */
@@ -69,6 +72,21 @@ int get_joint_index_by_name(const char* name) {
         }
     }
     return -1; // Not found
+}
+/* --------------------------------- Homing --------------------------------- */
+
+void perform_homing() {
+  // Don't home the last joint?
+  for (int i=0; i<5; i++) {
+    joints[i].home();
+  }
+  // for (Motor& joint : joints) joint.home();
+  drill1.home();
+  drill2.home();
+  homing_complete = true;
+
+  homing_done_msg.data = true;
+  rcl_publish(&homing_done_pub, &homing_done_msg, NULL);
 }
 
 /* -------------------------------- Callbacks ------------------------------- */
@@ -145,21 +163,6 @@ void trajectory_callback(const void* msgin) {
   }
 }
 
-/* --------------------------------- Homing --------------------------------- */
-
-void perform_homing() {
-  // Don't home the last joint?
-  for (int i=0; i<5; i++) {
-    joints[i].home();
-  }
-  // for (Motor& joint : joints) joint.home();
-  drill1.home();
-  drill2.home();
-  homing_complete = true;
-
-  homing_done_msg.data = true;
-  rcl_publish(&homing_done_pub, &homing_done_msg, NULL);
-}
 
 /* ---------------------------------- Estop --------------------------------- */
 
@@ -233,6 +236,20 @@ void setup() {
     ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, Trigger),
     "manual_home_wrist");
 
+  // Prepare static JointState name strings once
+  for (size_t i = 0; i < NUM_JOINTS; ++i) {
+    rosidl_runtime_c__String__assign(&joint_name_strings[i], joint_names[i]);
+  }
+
+  // Wire up JointState message fields once
+  joint_state_msg.name.size = NUM_JOINTS;
+  joint_state_msg.name.capacity = NUM_JOINTS;
+  joint_state_msg.name.data = joint_name_strings;
+
+  joint_state_msg.position.size = NUM_JOINTS;
+  joint_state_msg.position.capacity = NUM_JOINTS;
+  joint_state_msg.position.data = joint_positions;
+
   
   /* --------------------------- Register Callbacks --------------------------- */
 
@@ -265,11 +282,9 @@ void loop() {
   drill1.run();
   drill2.run();
 
-  joint_state_msg.header.stamp = /* get current time */;
-  joint_state_msg.name.size = NUM_JOINTS;
-  joint_state_msg.position.size = NUM_JOINTS;
-  joint_state_msg.name.data = joint_names;    // `const char* joint_names[NUM_JOINTS] = {"joint1", ...};`
-  joint_state_msg.position.data = joint_positions;  // double joint_positions[NUM_JOINTS];
+  uint64_t now_ns = rmw_uros_epoch_nanos();
+  joint_state_msg.header.stamp.sec = now_ns / 1000000000ULL;
+  joint_state_msg.header.stamp.nanosec = now_ns % 1000000000ULL;
 
   for (size_t i = 0; i < NUM_JOINTS; ++i) {
     joint_positions[i] = radians(joints[i].currentPosition()); // Must be in radians

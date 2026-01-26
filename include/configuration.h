@@ -30,6 +30,8 @@ const char * joint_names[NUM_JOINTS] = {
 #define J4_INV false
 #define J5_INV false
 #define J6_INV false
+#define D1_INV false
+#define D2_INV false
 
 // Current in mA
 #define J1_CURR 800
@@ -100,3 +102,5 @@ const char * joint_names[NUM_JOINTS] = {
 #define J4_HPOS 0
 #define J5_HPOS 0
 #define J6_HPOS 0
+#define D1_HPOS 0
+#define D2_HPOS 0
