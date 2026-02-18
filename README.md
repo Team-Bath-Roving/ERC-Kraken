@@ -50,8 +50,8 @@ Install the PlatformIO extension for VSCode.
 
 ## Usage
 
-1. Flash the firmware (compile and upload `firmware.bin` by placing it on an SD card and inserting it into the Kraken, then power cycle).
-2. Connect to the host machine via USB (CAN support planned).
+1. Flash the firmware: Compile (Open project using PlaftormIO extension. Then press Build in the Project Tasks tab. Upload `.pio/build/nucleo_h723zg/firmware.bin` by placing it on a FAT32 SD card and inserting it into the Kraken, then power cycle. It will flash the LED for a few seconds. Once finished, the file is renamed `firmware.cur`.
+2. Connect to the host machine via USB.
 `ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyS0 -b 115200`
 3. Send position commands via the `joint_positions` topic.
 4. Call the `home_all` service before commanding motion.
