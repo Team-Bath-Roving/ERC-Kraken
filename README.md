@@ -28,7 +28,8 @@ The Kraken is a powerful 3D printer control board which has 4x 8A stepper driver
 
 This library is used to communicate with the rest of the system:
 [https://github.com/micro-ROS/micro\_ros\_platformio](https://github.com/micro-ROS/micro_ros_platformio)
-
+Installation guide:  
+https://micro.ros.org/docs/tutorials/core/first_application_linux/
 ---
 
 ## Setup
@@ -51,6 +52,7 @@ Install the PlatformIO extension for VSCode.
 
 1. Flash the firmware (compile and upload `firmware.bin` by placing it on an SD card and inserting it into the Kraken, then power cycle).
 2. Connect to the host machine via USB (CAN support planned).
+`ros2 run micro_ros_agent micro_ros_agent serial --dev /dev/ttyS0 -b 115200`
 3. Send position commands via the `joint_positions` topic.
 4. Call the `home_all` service before commanding motion.
 
