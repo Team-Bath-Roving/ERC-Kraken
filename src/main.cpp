@@ -76,13 +76,10 @@ int get_joint_index_by_name(const char* name) {
 /* --------------------------------- Homing --------------------------------- */
 
 void perform_homing() {
-  // Don't home the last joint?
-  for (int i=0; i<5; i++) {
+  for (int i=0; i<NUM_JOINTS; i++) {
     joints[i].home();
   }
-  // for (Motor& joint : joints) joint.home();
-  drill1.home();
-  drill2.home();
+  // D1 is spare, not homed here
   homing_complete = true;
 
   homing_done_msg.data = true;
@@ -105,8 +102,7 @@ void estop_callback(const void* msgin) {
   estop_active = msg->data;
 
   for (Motor& joint : joints) estop_active ? joint.disable() : joint.enable();
-  estop_active ? drill1.disable() : drill1.enable();
-  estop_active ? drill2.disable() : drill2.enable();
+  // d1 is not used
 }
 
 void homing_service_callback(const void* req, void* res) {
@@ -121,8 +117,7 @@ void enable_motors_service_callback(const void* req, void* res) {
   bool enable = request->data;
 
   for (Motor& joint : joints) enable ? joint.enable() : joint.disable();
-  enable ? drill1.enable() : drill1.disable();
-  enable ? drill2.enable() : drill2.disable();
+  // d1 is not used
 
   auto* response = (std_srvs__srv__SetBool_Response*)res;
   response->success = true;
@@ -130,17 +125,18 @@ void enable_motors_service_callback(const void* req, void* res) {
 }
 
 void manual_home_service_callback(const void* req, void* res) {
-  joints[4].disable();
+  // Example: disable last two joints for manual wrist homing (adjust as needed for 7DOF)
   joints[5].disable();
+  joints[6].disable();
 
   delay(10000); // or wait for ROS signal to continue
 
-  joints[4].enable();
   joints[5].enable();
+  joints[6].enable();
 
   // Assume manual alignment happens now, then reset zero
-  joints[4].setCurrentPosition(0);
   joints[5].setCurrentPosition(0);
+  joints[6].setCurrentPosition(0);
   auto* response = (std_srvs__srv__Trigger_Response*)res;
   response->success = true;
   response->message.data = strdup("Wrist manually homed.");
@@ -173,8 +169,7 @@ void check_estop_pin() {
   if (current_state && !last_state) {
     estop_active = true;
     for (Motor& joint : joints) joint.stop();
-    drill1.stop();
-    drill2.stop();
+    // d1 is not used
   }
 
   last_state = current_state;
@@ -183,17 +178,26 @@ void check_estop_pin() {
 /* ---------------------------------- Setup --------------------------------- */
 
 void setup() {
-
-
-  // Serial startup
-  Serial.begin(115200);
-  set_microros_serial_transports(Serial);
+  SerialUSB.begin();
   delay(2000);
+
+  // Heartbeat pin setup
+  pinMode(FAN0_PIN, OUTPUT);
+  digitalWrite(FAN0_PIN, LOW);
+  delay(500);
+  digitalWrite(FAN0_PIN, HIGH);
+  delay(500);
+  digitalWrite(FAN0_PIN, LOW);
+  delay(500);
+  digitalWrite(FAN0_PIN, HIGH);
+  delay(500);
+  digitalWrite(FAN0_PIN, LOW);
+
+  set_microros_serial_transports(SerialUSB);
 
   // Start motors
   for (Motor& joint : joints) joint.begin();
-  drill1.begin();
-  drill2.begin();
+  // d1 is not used
 
   // Create the node
   allocator = rcl_get_default_allocator();
@@ -279,8 +283,17 @@ void loop() {
   check_estop_pin();
 
   for (Motor& joint : joints) joint.run();
-  drill1.run();
-  drill2.run();
+  // d1 is not used
+
+  // Heartbeat: toggle FAN0_PIN every second
+  static uint32_t last_toggle = 0;
+  static bool fan_state = false;
+  uint32_t now = millis();
+  if (now - last_toggle > 1000) {
+    fan_state = !fan_state;
+    digitalWrite(FAN0_PIN, fan_state ? HIGH : LOW);
+    last_toggle = now;
+  }
 
   uint64_t now_ns = rmw_uros_epoch_nanos();
   joint_state_msg.header.stamp.sec = now_ns / 1000000000ULL;
@@ -291,4 +304,9 @@ void loop() {
   }
   rcl_publish(&joint_state_pub, &joint_state_msg, NULL);
 
+  // Serial echo using SerialUSB
+  if (SerialUSB.available()) {
+    char c = SerialUSB.read();
+    SerialUSB.write(c);
+  }
 }

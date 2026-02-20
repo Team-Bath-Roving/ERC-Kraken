@@ -73,6 +73,34 @@ Emergency stop override. If `true`, the arm will stop moving as fast as possible
 ros2 topic pub /estop std_msgs/msg/Bool "{data: true}"
 ```
 
+#### `joint_states` (`sensor_msgs/msg/JointState`)
+The firmware publishes current joint positions (in steps), optional velocities and efforts on `/joint_states`. This topic is useful for visualization and feedback loops on the ROS side. Joint names correspond to the firmware order (e.g. `['joint1','joint2','joint3','joint4','joint5','joint6']`).
+
+Example (echo current states):
+```bash
+ros2 topic echo /joint_states
+```
+
+To visualize in RViz or replay states, run the standard ROS nodes `joint_state_publisher[_gui]` and `robot_state_publisher` on the host and point them at `/joint_states`.
+
+Notes:
+- Positions are reported in the same units used for commands (steps). Convert to radians/meters in your ROS nodes if needed.
+- The publish rate is configurable in firmware (see configuration header).
+- Homing must be completed before joint states represent valid absolute positions.
+
+#### `trajectory` (`trajectory_msgs/msg/JointTrajectory`)
+Subscribe to `/trajectory` to send time-parameterized joint trajectories. Each `JointTrajectoryPoint.positions` entry is interpreted in steps to match the `joint_positions` units.
+
+Example single-point trajectory (move to a target in 2 seconds):
+```bash
+ros2 topic pub /trajectory trajectory_msgs/msg/JointTrajectory "{joint_names: ['joint1','joint2','joint3','joint4','joint5','joint6'], points: [{positions:[1000,2000,1500,1000,500,0], time_from_start:{sec:2}}]}" --once
+```
+
+Notes:
+- The firmware expects positions in steps and will execute points according to their `time_from_start`. Ensure the message times are monotonic and allow for safe velocities/accelerations.
+- Trajectory execution requires the arm to be homed; trajectory messages received before homing will be ignored.
+- For action-style interfaces (e.g. `FollowJointTrajectory`), provide a bridge on the ROS host that converts the action goal into `trajectory_msgs/JointTrajectory` messages if needed.
+
 ### Published Topics
 
 #### `homing_done` (`std_msgs/msg/Bool`)

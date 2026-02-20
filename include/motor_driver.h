@@ -124,6 +124,31 @@ public:
 
   }
 
+  void setSpeed(float units_per_sec) {
+    speed = units_per_sec;
+    stepper.setMaxSpeed(unitsToSteps(units_per_sec));
+  }
+
+  float getSpeed() const {
+    return speed;
+  }
+
+  void setAcceleration(float units_per_sec2) {
+    acceleration = units_per_sec2;
+    stepper.setAcceleration(unitsToSteps(units_per_sec2));
+  }
+
+  float getAcceleration() const {
+    return acceleration;
+  }
+
+  // Move to position with specified speed and acceleration (for trajectory segment)
+  void moveToWithProfile(float pos, float units_per_sec, float units_per_sec2) {
+    setSpeed(units_per_sec);
+    setAcceleration(units_per_sec2);
+    moveTo(pos);
+  }
+
 private:
   long unitsToSteps(float units) {
     return (long)(units * steps_per_unit);
