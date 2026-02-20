@@ -2,7 +2,7 @@
 #include "configuration.h"
 #include "motor_driver.h"
 
-Motor joints[7] = {                                                                 
+Motor joints[NUM_JOINTS] = {                                                                 
 //Motor(STEP        , DIR        , CS        , ENABLE        , MICROSTEPS, ENDSTOP     , RSENSE    , CURRENT,   STEPS_PER_UNIT, SG HOMING, SGT    , HOMING DIR, HOMING SPEED, INVERT )
   Motor(X_STEP_PIN  , X_DIR_PIN  , X_CS_PIN  , X_ENABLE_PIN  , MICROSTEPS, X_STOP_PIN  , X_RSENSE  , J1_CURR  , J1_STEPS     , J1_SGH   , J1_SGT , J1_HDIR   , J1_HSPEED , J1_HPOS , J1_INV  ), // Yaw
   Motor(Y_STEP_PIN  , Y_DIR_PIN  , Y_CS_PIN  , Y_ENABLE_PIN  , MICROSTEPS, Y_STOP_PIN  , Y_RSENSE  , J2_CURR  , J2_STEPS     , J2_SGH   , J2_SGT , J2_HDIR   , J2_HSPEED , J2_HPOS , J2_INV  ), // Shoulder
