@@ -92,7 +92,9 @@ void motor_command_callback(const void* msgin) {
   const std_msgs__msg__Float32MultiArray* msg = (const std_msgs__msg__Float32MultiArray*)msgin;
   if (estop_active) return;
 
-  for (size_t i = 0; i < NUM_JOINTS; i++) {
+  // Fix: Only iterate up to min(NUM_JOINTS, msg->data.size)
+  size_t limit = (msg->data.size < NUM_JOINTS) ? msg->data.size : NUM_JOINTS;
+  for (size_t i = 0; i < limit; i++) {
     joints[i].moveTo(msg->data.data[i]);
   }
 }
@@ -148,14 +150,15 @@ void trajectory_callback(const void* msgin) {
   if (msg->points.size == 0) return;
 
   const auto* point = &msg->points.data[0];
-  for (size_t i = 0; i < msg->joint_names.size && i < NUM_JOINTS; ++i) {
+  size_t limit = (msg->joint_names.size < NUM_JOINTS && point->positions.size < NUM_JOINTS) ? msg->joint_names.size : NUM_JOINTS;
+  if (point->positions.size < limit) limit = point->positions.size;
+  for (size_t i = 0; i < limit; ++i) {
     const char* joint_name = msg->joint_names.data[i].data;
-
-    // Map joint_name to index if needed
     uint joint_idx = get_joint_index_by_name(joint_name);
-
-    double rad = point->positions.data[i];
-    joints[joint_idx].moveTo(degrees(rad));
+    if (joint_idx >= 0 && joint_idx < NUM_JOINTS) {
+      double rad = point->positions.data[i];
+      joints[joint_idx].moveTo(degrees(rad));
+    }
   }
 }
 
@@ -182,16 +185,16 @@ void setup() {
   delay(2000);
 
   // Heartbeat pin setup
-  pinMode(FAN0_PIN, OUTPUT);
-  digitalWrite(FAN0_PIN, LOW);
+  pinMode(HEATER_0_PIN, OUTPUT);
+  digitalWrite(HEATER_0_PIN, LOW);
   delay(500);
-  digitalWrite(FAN0_PIN, HIGH);
+  digitalWrite(HEATER_0_PIN, HIGH);
   delay(500);
-  digitalWrite(FAN0_PIN, LOW);
+  digitalWrite(HEATER_0_PIN, LOW);
   delay(500);
-  digitalWrite(FAN0_PIN, HIGH);
+  digitalWrite(HEATER_0_PIN, HIGH);
   delay(500);
-  digitalWrite(FAN0_PIN, LOW);
+  digitalWrite(HEATER_0_PIN, LOW);
 
   set_microros_serial_transports(SerialUSB);
 
@@ -299,6 +302,7 @@ void loop() {
   joint_state_msg.header.stamp.sec = now_ns / 1000000000ULL;
   joint_state_msg.header.stamp.nanosec = now_ns % 1000000000ULL;
 
+  // Fix: Only iterate up to NUM_JOINTS and check array bounds
   for (size_t i = 0; i < NUM_JOINTS; ++i) {
     joint_positions[i] = radians(joints[i].currentPosition()); // Must be in radians
   }
