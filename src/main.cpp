@@ -181,21 +181,22 @@ void check_estop_pin() {
 /* ---------------------------------- Setup --------------------------------- */
 
 void setup() {
-  SerialUSB.begin();
+  
   delay(2000);
 
   // Heartbeat pin setup
-  pinMode(HEATER_0_PIN, OUTPUT);
-  digitalWrite(HEATER_0_PIN, LOW);
+  pinMode(FAN0_PIN, OUTPUT);
+  digitalWrite(FAN0_PIN, LOW);
   delay(500);
-  digitalWrite(HEATER_0_PIN, HIGH);
+  digitalWrite(FAN0_PIN, HIGH);
   delay(500);
-  digitalWrite(HEATER_0_PIN, LOW);
+  digitalWrite(FAN0_PIN, LOW);
   delay(500);
-  digitalWrite(HEATER_0_PIN, HIGH);
+  digitalWrite(FAN0_PIN, HIGH);
   delay(500);
-  digitalWrite(HEATER_0_PIN, LOW);
+  digitalWrite(FAN0_PIN, LOW);
 
+  SerialUSB.begin(115200);
   set_microros_serial_transports(SerialUSB);
 
   // Start motors
