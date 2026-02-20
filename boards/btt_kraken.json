@@ -1,5 +1,6 @@
 {
   "build": {
+    "board": "GENERIC_STM32H723ZGTX",
     "core": "stm32",
     "cpu": "cortex-m7",
     "extra_flags": "-DSTM32H723xx -DSTM32H7",
