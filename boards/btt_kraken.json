@@ -8,13 +8,15 @@
     "product_line": "STM32H723xx",
     "variant": "STM32H7xx/H723Z(E-G)T_H733ZGT"
   },
-  "frameworks": ["arduino"],
+  "frameworks": [
+    "arduino"
+  ],
   "name": "BTT Kraken V1.0",
   "upload": {
     "maximum_ram_size": 532480,
     "maximum_size": 1048576,
-    "protocol": "dfu",
-    "protocols": ["dfu", "stlink", "jlink"]
+    "protocol": "custom"
   },
+  "url": "https://github.com/bigtreetech/BIGTREETECH-Kraken",
   "vendor": "BigTreeTech"
 }
